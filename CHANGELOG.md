@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.6] - 2026-04-04
+
+### Fixed
+- Android/Termux: define `android_ndk_path` gyp variable to avoid `gyp: Undefined variable android_ndk_path` during configure.
+
 ## [2.0.5] - 2026-04-04
 
 ### Fixed

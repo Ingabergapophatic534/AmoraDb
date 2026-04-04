@@ -37,6 +37,14 @@ To build the native addon:
 npm install
 ```
 
+If you see `gyp: Undefined variable android_ndk_path` on Termux, create this file and retry:
+
+```bash
+mkdir -p ~/.gyp
+echo "{'variables':{'android_ndk_path':''}}" > ~/.gyp/include.gypi
+npm install
+```
+
 ### Running Tests
 
 Run the full test suite using Node.js:

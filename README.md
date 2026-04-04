@@ -118,6 +118,22 @@ node benchmark.js
 npm install amoradbx
 ```
 
+Termux (Android, arm64):
+
+```bash
+pkg update -y
+pkg install -y nodejs python make clang
+npm install amoradbx
+```
+
+If you see `gyp: Undefined variable android_ndk_path`, create this file and retry:
+
+```bash
+mkdir -p ~/.gyp
+echo "{'variables':{'android_ndk_path':''}}" > ~/.gyp/include.gypi
+npm install amoradbx
+```
+
 ### Basic Usage
 
 ```js

@@ -1,4 +1,7 @@
 {
+  "variables": {
+    "android_ndk_path%": ""
+  },
   "targets": [
     {
       "target_name": "amoradb",
