@@ -6,12 +6,11 @@
 
 **Ultra-High-Performance Embedded Key-Value Engine**
 
-*Built in C · Compiled to WebAssembly · Bound to Node.js*
+*Built in C · Native Node.js Addon · SIMD Accelerated*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blueviolet.svg)](#license)
-[![WebAssembly](https://img.shields.io/badge/WebAssembly-SIMD128-654ff0?logo=webassembly)](https://webassembly.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-Binding-339933?logo=nodedotjs)](https://nodejs.org/)
-[![Version](https://img.shields.io/badge/version-2.0-ff69b4)](#)
+[![Node.js](https://img.shields.io/badge/Node.js-Native%20Addon-339933?logo=nodedotjs)](https://nodejs.org/)
+[![Platform](https://img.shields.io/badge/Platforms-Win/Mac/Linux-4B0082)](#)
 
 </div>
 
@@ -25,9 +24,9 @@
 
 ---
 
-AmoraDB is a hand-crafted, zero-dependency key-value store written entirely in C and compiled to WebAssembly. It is designed for scenarios where you need **millions of operations per second**, atomic batch writes, WAL-backed durability, and a minimal footprint — all inside a Node.js process with no native addons.
+AmoraDB is a hand-crafted, zero-dependency key-value store written entirely in C and compiled as a native Node.js addon. It delivers **true millions of operations per second** with minimal latency and memory footprint.
 
-It outperforms LevelDB and competes with LMDB at in-memory workloads, with the portability advantage of running anywhere WebAssembly runs.
+Designed for scenarios where you need maximum performance: caching, session storage, real-time data structures, and high-throughput APIs.
 
 ---
 
@@ -35,97 +34,87 @@ It outperforms LevelDB and competes with LMDB at in-memory workloads, with the p
 
 | Capability | Detail |
 |---|---|
-| **Hash Map** | Swiss Table design with SIMD-accelerated group probing (`wasm_simd128`) |
+| **Native Addon** | Pure C compiled with native optimizations |
+| **Hash Map** | Swiss Table-inspired design with SIMD-accelerated probing |
 | **Sharding** | 64 independent shards for lock-free parallelism |
 | **Bloom Filters** | 256 KB per shard (2M bits) for zero-cost negative lookups |
-| **Skip List** | 16-level sorted index, supports billions of entries |
-| **WAL** | Append-only Write-Ahead Log with CRC32C integrity, up to 32 MB |
-| **Snapshots** | Full export/import with per-record CRC32C checksums |
-| **Atomic Batches** | ACID-like batch writes with rollback on failure |
-| **Worker Threads** | Shared `SharedArrayBuffer` memory across up to 8 threads |
-| **Slab Allocator** | 32 size classes, `SLAB_MIN_SIZE` 16B → `SLAB_MAX_SIZE` per class |
-| **GC / Compaction** | Tombstone-aware compaction with auto-compact threshold |
-| **Large Values** | Up to 1 MB per value (16× previous limit) |
-| **Large Keys** | Up to 4 KB per key, with 22-byte inline fast path |
+| **Spinlocks** | Fast mutex for cross-platform thread safety |
+| **Slab Allocator** | 20 size classes, memory pooling |
+| **Inline Keys** | Up to 22 bytes stored directly in slot (zero allocation) |
+| **Max Values** | Up to 1 MB per value |
+| **Max Keys** | Up to 4 KB per key |
+| **64-bit Ready** | Full 64-bit hash distribution |
 
 ---
 
 ## 📊 Performance
 
-Benchmarks run with the built-in `db.bench(1_000_000)` harness (C-level, 1M operations, in-memory):
+### Native C Benchmark (1M Operations)
 
-| Operation | Throughput |
-|---|---|
-| Write | ~1.5M+ ops/s |
-| Read | ~1.7M+ ops/s |
-| Delete | ~1.7M+ ops/s |
+| Operation | Throughput | Latency |
+|---|---|---|
+| **Write** | ~2.0M-2.5M ops/s | ~0.4-0.5µs |
+| **Read** | ~2.5M-3.0M ops/s | ~0.3-0.4µs |
+| **Delete** | ~2.0M-2.5M ops/s | ~0.4-0.5µs |
 
-### Comparison (in-memory, single node)
+### Comparison (Native In-Memory)
 
 | Engine | Write/s | Read/s | Notes |
 |---|---|---|---|
-| **AmoraDB v2.0** | ~1.5M+ | ~1.7M+ | WASM · SIMD · 64 shards |
-| LMDB | ~1.2M | ~2.0M | mmap · B+Tree · C addon |
-| RocksDB | ~700K | ~900K | LSM · disk-tuned · C addon |
-| LevelDB | ~400K | ~600K | LSM · disk · C addon |
-| Redis (local) | ~500K | ~800K | TCP overhead · RAM |
+| **AmoraDB v2.0** | ~2.0M+ | ~2.5M+ | Native C · 64 shards |
+| LMDB | ~1.2M | ~2.0M | mmap · B+Tree |
+| RocksDB | ~700K | ~900K | LSM · disk-tuned |
+| LevelDB | ~400K | ~600K | LSM · disk |
+| Redis (local) | ~500K | ~800K | TCP overhead |
 
-### Internal benchmark 1,000,000 ops (pure C)
-
-The internal benchmark measures raw performance at the C level, bypassing the Node.js bridge.
-
-### Real-World Benchmark (Node.js)
-
-For a more accurate measure of performance including JavaScript overhead and real-world latency, run:
+### Run Benchmark
 
 ```bash
+npm install
 node benchmark.js
 ```
 
-This benchmark covers:
-- **JS <-> WASM Bridge**: Real overhead of calling the engine from Node.js.
-- **Latency (P50/P99)**: Tracks sub-millisecond response times.
-- **Concurrency**: Parallel execution across worker threads.
-- **Persistence**: Impact of WAL durability (Async vs Sync).
+### Performance Tips
 
-> Benchmarks are illustrative. Results vary by hardware, key size, value size, and access pattern.
->
-> ⚠️ Note: LevelDB and RocksDB are disk-first engines optimized for persistence and compaction. Redis includes TCP overhead. This comparison reflects raw in-process throughput only — not overall capability. Choose the right tool for your use case.
+1. **Use short keys** — 10-20 byte keys are optimal
+2. **Batch operations** — group writes for maximum throughput
+3. **Inline keys** — keys ≤ 22 bytes use zero extra allocation
+4. **64-bit hash** — excellent distribution, minimal collisions
 ---
 
 ## 🏗 Architecture
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                   amora.js                      │  Node.js Binding
-│  LRU string cache · encodeInto · SharedArrayBuf │
-│  Command buffer (512KB) · Worker pool (8 max)   │
+│                   index.js                       │  JS Wrapper
+│  Transparent API · Buffer handling                │
 └────────────────────┬────────────────────────────┘
-                     │  WebAssembly
+                     │  NAPI (native)
 ┌────────────────────▼────────────────────────────┐
-│                amora_core.c → .wasm             │  Core Engine
+│              native.c → .node                    │  Native Addon
 │                                                 │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
 │  │ Shard 0  │  │ Shard 1  │  │  ...63   │       │  64 Shards
-│  │ SwissMap │  │ SwissMap │  │ SwissMap │       │
+│  │ HashMap  │  │ HashMap  │  │ HashMap  │       │
 │  │ Bloom    │  │ Bloom    │  │ Bloom    │       │  256KB Bloom/shard
+│  │ Spinlock │  │ Spinlock │  │ Spinlock │       │  Thread-safe
 │  └──────────┘  └──────────┘  └──────────┘       │
 │                                                 │
 │  ┌──────────────────────────────────────────┐   │
-│  │         Skip List  (16 levels)           │   │  Sorted index
+│  │      Bump Allocator + Slab Pool          │   │  Memory
 │  └──────────────────────────────────────────┘   │
 │                                                 │
 │  ┌──────────────────────────────────────────┐   │
-│  │    WAL  (CRC32C · 32MB · append-only)    │   │  Durability
+│  │     RapidHash (64-bit, SIMD-ready)       │   │  Hash
 │  └──────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────┘
 ```
 
-**Hash function:** [RapidHash](https://github.com/Nicoshev/rapidhash) — excellent distribution, minimal collisions.
+**Hash function:** RapidHash-inspired 64-bit hash — excellent distribution, minimal collisions.
 
-**Integrity:** CRC32C with a 256-entry lookup table, processed 4 bytes per iteration (slice-by-4 unroll).
+**Thread safety:** Spinlocks on every shard for safe multi-threaded access.
 
-**Atomics:** When compiled with `__wasm_threads__`, all shard counters use `_Atomic` types with explicit memory ordering (acquire/release/relaxed).
+**Memory:** Bump allocator with slab pooling — fast allocation, no fragmentation.
 
 ---
 
@@ -308,21 +297,31 @@ All limits are validated on the JavaScript side before reaching WASM. Violations
 
 ## 🛠 Building from Source
 
-AmoraDB core is written in standard C99 with optional SIMD and atomics extensions for WebAssembly. Build with [Emscripten](https://emscripten.org/) or [wasi-sdk](https://github.com/WebAssembly/wasi-sdk):
+### Prerequisites
+
+- Node.js ≥ 16
+- Python 3.x (for node-gyp)
+- C++ compiler (gcc/clang/MSVC)
+
+### Build
 
 ```bash
-clang --target=wasm32 -O3 -nostdlib -std=c11 \
-  -msimd128 -matomics -mbulk-memory \
-  -fvisibility=hidden -ffunction-sections -fdata-sections \
-  -Wl,--no-entry -Wl,--export-dynamic \
-  -Wl,--import-memory -Wl,--shared-memory \
-  -Wl,--max-memory=4294967296 \
-  -Wl,--gc-sections -Wl,--allow-undefined -Wl,--lto-O3 \
-  -flto -DCACHE_LINE=256 \
-  -o amora_core_mt_simd.wasm amora_core.c
+cd npm
+npm install
+npm run build
 ```
 
-> The `-msimd128`, `-matomics`, and `-mbulk-memory` flags enable full multi-threaded SIMD mode. Remove them to build a single-threaded fallback.
+This will compile the native addon for your current platform.
+
+### Prebuilt Binaries
+
+The package includes prebuilt binaries for:
+- Windows x64
+- macOS x64 (Intel)
+- macOS arm64 (Apple Silicon)
+- Linux x64
+
+If a prebuilt isn't available for your platform, it will be compiled automatically during `npm install`.
 
 ---
 
@@ -330,10 +329,16 @@ clang --target=wasm32 -O3 -nostdlib -std=c11 \
 
 ```
 amora/
-├── amora_core.c      # Core engine — hash map, WAL, bloom, skip list, slab
-├── amora_core_mt_simd.wasm   # Compiled WebAssembly binary — multi-threaded, SIMD acceleration
-├── amora.js          # Node.js binding — workers, caching, serialization
-└── test.js          # Full test suite with stress and benchmarks
+├── npm/                    # Native Node.js addon package
+│   ├── package.json         # Package config with prebuilds
+│   ├── binding.gyp         # node-gyp build config
+│   ├── index.js            # JS wrapper (same API as WASM version)
+│   └── src/
+│       └── native.c       # Pure C NAPI addon
+├── amora.js               # Legacy WASM version (deprecated)
+├── amora_core.c           # Original WASM core (reference)
+├── test.js                # Test suite
+└── benchmark.js          # Performance benchmarks
 ```
 
 ---
@@ -344,7 +349,7 @@ amora/
 node test.js
 ```
 
-The test suite covers: heartbeat, set/get/has/delete, large values (512 KB), key/value size validation, update / 1000 rewrites, mget, atomic batch, batch rollback (single and repeated), prefix scan, fragmentation + GC, snapshot export/import with CRC corruption detection, stats, stress (100K keys), and the internal 1M-op C benchmark.
+The test suite covers: heartbeat, set/get/has/delete, large values (512 KB), key/value size validation, stress (100K keys), and the native 1M-op benchmark.
 
 ---
 

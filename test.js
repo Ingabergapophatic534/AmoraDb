@@ -329,18 +329,16 @@ try {
 
 sep();
 
-hdr('Comparison AmoraDB v2.0 vs competitors (RAM only)');
+hdr('Performance Summary');
 box([
-  'Engine          Write/s     Read/s    Delete/s   Notes',
+  'Mode                    Write/s     Read/s    Notes',
   '─────────────────────────────────────────────────────────────',
-  'AmoraDB v2.0    ~1.5M+      ~1.7M+    ~1.7M+     WASM+SIMD+64shards+1MB',
-  'LevelDB         ~400K       ~600K     ~400K      LSM, disk, Node addon',
-  'RocksDB         ~700K       ~900K     ~600K      LSM tuned, disk, addon',
-  'LMDB            ~1.2M       ~2.0M     ~1.0M      mmap, B+Tree, limited',
-  'Redis (local)   ~500K       ~800K     ~500K      TCP overhead, RAM',
+  'Internal C bench        ~1.5M-1.7M  ~1.8M-2.0M  Pure C, no bridge overhead',
+  'Batched (setBuffered)   ~400K-600K  ~250K-300K  100K keys via batch',
+  'Individual JS ops       ~35K-50K    ~120K-160K  Real-world Node.js',
   '─────────────────────────────────────────────────────────────',
-  '★ v2.0 adds: 64 shards, bloom filter 256KB/shard, skip',
-  '  list 16 levels, values up to 1MB, WAL 32MB, 4096 results.',
+  '★ Internal bench: 1M ops in pure C via db.bench()',
+  '★ Batched: uses setBuffered() + flush() for bulk inserts',
 ]);
 
 sep();

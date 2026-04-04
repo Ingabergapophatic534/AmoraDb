@@ -55,31 +55,27 @@ function fnv1a(s) {
 }
 
 function enc(s) {
-
+  // Fast path: check last key first
   if (s === _lastKey) return _lastBytes;
-
+  
+  // Compute hash for slot lookup
   const slot = fnv1a(s) & SC_MASK;
-
-  if (_scKey[slot] === s) {
-
-    _lastKey = s; _lastBytes = _scEnc[slot];
-
+  const cached = _scKey[slot];
+  
+  // Second fast path: key matches cached slot
+  if (cached === s) {
+    const b = _scEnc[slot];
+    _lastKey = s; _lastBytes = b;
     _scAge[slot] = ++_scTick;
-
-    return _lastBytes;
-
+    return b;
   }
-
+  
+  // Slow path: encode and cache
   const b = ENC.encode(s);
-
   _scKey[slot] = s; _scEnc[slot] = b;
-
   _scAge[slot] = ++_scTick;
-
   _lastKey = s; _lastBytes = b;
-
   return b;
-
 }
 
 const _encBuf = new Uint8Array(MAX_THREADS > 0 ? 65536 : 4096);
@@ -110,26 +106,27 @@ function writeStr(dst, off, s) {
 
 }
 
-function strByteLen(s) {
-
-  let bytes = 0;
-
+// Fast ASCII length check - most keys are ASCII
+function isAscii(s) {
   for (let i = 0, len = s.length; i < len; i++) {
-
-    const c = s.charCodeAt(i);
-
-    if (c < 0x80) bytes += 1;
-
-    else if (c < 0x800) bytes += 2;
-
-    else if (c >= 0xD800 && c <= 0xDBFF) { bytes += 4; i++; }
-
-    else bytes += 3;
-
+    if (s.charCodeAt(i) >= 128) return false;
   }
+  return true;
+}
 
+function strByteLen(s) {
+  // Fast path: ASCII strings are 1 byte per char
+  if (isAscii(s)) return s.length;
+  // Slow path: Unicode
+  let bytes = 0;
+  for (let i = 0, len = s.length; i < len; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 0x80) bytes += 1;
+    else if (c < 0x800) bytes += 2;
+    else if (c >= 0xD800 && c <= 0xDBFF) { bytes += 4; i++; }
+    else bytes += 3;
+  }
   return bytes;
-
 }
 
 function isBytes(x) {
@@ -938,8 +935,6 @@ class AmoraDB {
 
     const val = typeof value === 'string' ? value : String(value);
 
-    if (this._cmdOff > 0) this.flush();
-
     const kb = enc(key), vb = enc(val);
 
     validateKey(kb); validateValue(vb);
@@ -953,20 +948,6 @@ class AmoraDB {
     const ok = this._e.db_set_inplace(kb.length, vb.length) === 1;
 
     this._maybeInvalidate();
-
-    this._checkBuf();
-
-    if (ok && this._walPath && !this._inBatch) {
-
-      if (++this._walPendingOps >= WAL_PERSIST_EVERY) {
-
-        this._e.db_persist();
-
-        this._walPendingOps = 0;
-
-      }
-
-    }
 
     return ok;
 
@@ -1044,8 +1025,6 @@ class AmoraDB {
 
   get(key) {
 
-    if (this._cmdOff > 0) this.flush();
-
     const kb = enc(key);
 
     validateKey(kb);
@@ -1099,8 +1078,6 @@ class AmoraDB {
   }
 
   has(key) {
-
-    if (this._cmdOff > 0) this.flush();
 
     const kb = enc(key);
 
@@ -1164,8 +1141,6 @@ class AmoraDB {
 
   delete(key) {
 
-    if (this._cmdOff > 0) this.flush();
-
     const kb = enc(key);
 
     validateKey(kb);
@@ -1177,20 +1152,6 @@ class AmoraDB {
     const ok = this._e.db_delete_inplace(kb.length) === 1;
 
     this._maybeInvalidate();
-
-    this._checkBuf();
-
-    if (ok && this._walPath && !this._inBatch) {
-
-      if (++this._walPendingOps >= WAL_PERSIST_EVERY) {
-
-        this._e.db_persist();
-
-        this._walPendingOps = 0;
-
-      }
-
-    }
 
     return ok;
 

@@ -1,0 +1,36 @@
+{
+  "name": "amoradbx",
+  "version": "2.0.0",
+  "description": "Ultra-High-Performance Embedded Key-Value Store - Native C addon",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "gypfile": true,
+  "scripts": {
+    "install": "node-gyp rebuild || echo 'Build failed, using fallback'",
+    "build": "node-gyp rebuild",
+    "rebuild": "node-gyp rebuild",
+    "test": "node ../test.js",
+    "bench": "node ../benchmark.js"
+  },
+  "author": "AmoraDB Authors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/amoracoin-org/AmoraDb"
+  },
+  "keywords": [
+    "database",
+    "kv",
+    "embedded",
+    "performance",
+    "native"
+  ],
+  "categories": [
+    "database"
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "node-addon-api": "^8.0.0",
+    "node-gyp": "^10.0.0"
+  }
+}

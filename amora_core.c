@@ -1821,7 +1821,8 @@ EXPORT i32 db_set_inplace(u32 kl, u32 vl) {
 
     u32 fh = rapidhash32(k, kl), si = hshard(fh);
 
-    wadd(WSET, k, kl, v, vl);
+    // Only write to WAL when not in memory-only mode (_wact == 2)
+    if (_wact != 2) wadd(WSET, k, kl, v, vl);
 
     shard_lock(&_shards[si]);
 
@@ -1929,7 +1930,8 @@ EXPORT i32 db_delete_inplace(u32 kl) {
 
     u32 fh = rapidhash32(k, kl), si = hshard(fh);
 
-    wadd(WDEL, k, kl, NULL, 0);
+    // Only write to WAL when not in memory-only mode (_wact == 2)
+    if (_wact != 2) wadd(WDEL, k, kl, NULL, 0);
 
     shard_lock(&_shards[si]);
 

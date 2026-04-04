@@ -1,0 +1,90 @@
+name: Build Native Addon
+
+on:
+  push:
+    branches: [main, native]
+  pull_request:
+    branches: [main]
+  release:
+    types: [published]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+          - os: ubuntu-latest
+            platform: linux
+            arch: arm64
+          - os: macos-latest
+            platform: darwin
+            arch: x64
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+          - os: windows-latest
+            platform: win32
+            arch: x64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: npm
+        run: npm install
+
+      - name: Build Native Addon
+        working-directory: npm
+        run: npm run build
+
+      - name: Upload prebuild
+        uses: actions/upload-artifact@v4
+        with:
+          name: prebuild-${{ matrix.platform }}-${{ matrix.arch }}
+          path: npm/build/Release/*.node
+          retention-days: 7
+
+  release:
+    needs: build
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all prebuilds
+        uses: actions/download-artifact@v4
+        with:
+          path: prebuilds
+          pattern: prebuild-*
+          merge-multiple: true
+
+      - name: Create Release Package
+        run: |
+          mkdir -p release
+          for dir in prebuilds/*/; do
+            platform=$(basename "$dir" | cut -d'-' -f1)
+            arch=$(basename "$dir" | cut -d'-' -f2)
+            mkdir -p "release/${platform}-${arch}"
+            cp "$dir"*.node "release/${platform}-${arch}/" 2>/dev/null || true
+          done
+          ls -la release/
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release/**/*
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
