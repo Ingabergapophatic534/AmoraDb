@@ -70,19 +70,19 @@ node benchmark.js
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                   index.js                       │  JS Wrapper
-│  Transparent API · Buffer handling                │
+│                   index.js                      │  JS Wrapper
+│        Transparent API · Buffer handling        │
 └────────────────────┬────────────────────────────┘
                      │  NAPI (native)
 ┌────────────────────▼────────────────────────────┐
-│              native.c → .node                    │  Native Addon
+│              native.c → .node                   │  Native Addon
 │                                                 │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
-│  │ Shard 0  │  │ Shard 1  │  │  ...63   │       │  64 Shards
-│  │ HashMap  │  │ HashMap  │  │ HashMap  │       │
-│  │ Bloom    │  │ Bloom    │  │ Bloom    │       │  256KB Bloom/shard
-│  │ Spinlock │  │ Spinlock │  │ Spinlock │       │  Thread-safe
-│  └──────────┘  └──────────┘  └──────────┘       │
+│    ┌──────────┐  ┌──────────┐  ┌──────────┐     │
+│    │ Shard 0  │  │ Shard 1  │  │  ...63   │     │  64 Shards
+│    │ HashMap  │  │ HashMap  │  │ HashMap  │     │
+│    │ Bloom    │  │ Bloom    │  │ Bloom    │     │  256KB Bloom/shard
+│    │ Spinlock │  │ Spinlock │  │ Spinlock │     │  Thread-safe
+│    └──────────┘  └──────────┘  └──────────┘     │
 │                                                 │
 │  ┌──────────────────────────────────────────┐   │
 │  │      Bump Allocator + Slab Pool          │   │  Memory
