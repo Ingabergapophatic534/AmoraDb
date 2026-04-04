@@ -139,13 +139,13 @@ This benchmark covers:
 ### Installation
 
 ```bash
-npm install amoradb
+npm install amoradbx
 ```
 
 ### Basic Usage
 
 ```js
-const AmoraDB = require('amoradb');
+const AmoraDB = require('amoradbx');
 
 // Open a database (in-memory + optional WAL persistence)
 const db = AmoraDB.open(null, {

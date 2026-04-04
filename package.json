@@ -1,5 +1,5 @@
 {
-  "name": "amoradb",
+  "name": "amoradbx",
   "version": "2.0.0",
   "description": "Ultra-high-performance embedded key-value engine (C -> WebAssembly) for Node.js",
   "main": "amora.js",
