@@ -63,7 +63,8 @@ Benchmarks run with the built-in `db.bench(1_000_000)` harness (C-level, 1M oper
 | Redis (local) | ~500K | ~800K | TCP overhead · RAM |
 
 > Benchmarks are illustrative. Results vary by hardware, key size, value size, and access pattern.
-
+>
+> ⚠️ Note: LevelDB and RocksDB are disk-first engines optimized for persistence and compaction. Redis includes TCP overhead. This comparison reflects raw in-process throughput only — not overall capability. Choose the right tool for your use case.
 ---
 
 ## 🏗 Architecture
