@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [2.0.2] - 2026-04-04
+
+### Fixed
+- Native addon: corrected UTF-8 string length handling (empty keys are rejected; length limits match documented bytes).
+
+## [2.0.1] - 2026-04-04
+
+### Added
+- Native Node.js addon implementation (N-API) under `npm/`.
+
+### Changed
+- Package entrypoint now targets the native addon wrapper.
+- Benchmarks and tests target the native addon.
+
+### Removed
+- Legacy JS↔WASM bridge artifacts.
+
 ## [2.0.0] - 2026-04-03
 
 ### Added

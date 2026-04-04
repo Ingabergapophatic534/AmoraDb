@@ -9,11 +9,19 @@
 
 #ifdef _WIN32
   #include <windows.h>
+  #include <intrin.h>
   #define BENCH_NOW() ((double)GetTickCount64())
 #else
   #include <sys/time.h>
   #include <sched.h>
   #define BENCH_NOW() ({ struct timeval tv; gettimeofday(&tv, NULL); tv.tv_sec * 1000.0 + tv.tv_usec / 1000.0; })
+#endif
+
+#if defined(__SSE2__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 2)
+  #include <emmintrin.h>
+  #define AMORA_SSE2 1
+#else
+  #define AMORA_SSE2 0
 #endif
 
 // ============================================================
@@ -33,6 +41,7 @@ typedef uint32_t u32;
 typedef uint64_t u64;
 typedef int32_t i32;
 typedef double f64;
+typedef uintptr_t uptr;
 
 // ============================================================
 // MEMORY
@@ -60,7 +69,7 @@ static void mem_free_all(void) {
     _heap_size = _heap_ptr = 0;
 }
 
-#define MP(off) ((u8*)(off))
+#define MP(off) ((u8*)(uptr)(off))
 
 // ============================================================
 // HASH
@@ -134,8 +143,8 @@ static inline int bloom_test(const u8* bm, u32 h) {
 #pragma pack(push, 1)
 typedef struct {
     u32 hash;
-    u32 koff;
-    u32 voff;
+    uptr koff;
+    uptr voff;
     u16 klen;
     u32 kcap;
     u32 vlen;
@@ -152,8 +161,8 @@ typedef struct {
 #ifdef _WIN32
   typedef LONG spinlock_t;
   #define SPIN_INIT(x) (*(x) = 0)
-  #define SPIN_LOCK(x) while (InterlockedExchangeAcquire(x, 1) == 1) Sleep(0)
-  #define SPIN_UNLOCK(x) InterlockedExchangeRelease(x, 0)
+  #define SPIN_LOCK(x) while (InterlockedExchange((volatile LONG*)(x), 1) == 1) Sleep(0)
+  #define SPIN_UNLOCK(x) InterlockedExchange((volatile LONG*)(x), 0)
 #else
   typedef int spinlock_t;
   #define SPIN_INIT(x) (*(x) = 0)
@@ -163,7 +172,7 @@ typedef struct {
 
 typedef struct {
     spinlock_t lock;
-    u32 ctrl_off, slot_off, bloom_off;
+    uptr ctrl_off, slot_off, bloom_off;
     u32 cap, count, deleted;
     volatile u64 hits, misses;
 } Shard;
@@ -171,7 +180,7 @@ typedef struct {
 static Shard _shards[N_SHARDS];
 
 static inline u8* sh_ctrl(Shard* sh) { return MP(sh->ctrl_off); }
-static inline Slot* sh_slot(Shard* sh, u32 i) { return (Slot*)(MP(sh->slot_off) + i * SLOT_SZ); }
+static inline Slot* sh_slot(Shard* sh, u32 i) { return (Slot*)(MP(sh->slot_off) + (uptr)i * (uptr)SLOT_SZ); }
 static inline u8* sh_bloom(Shard* sh) { return MP(sh->bloom_off); }
 static inline void shard_lock(Shard* sh) { SPIN_LOCK(&sh->lock); }
 static inline void shard_unlock(Shard* sh) { SPIN_UNLOCK(&sh->lock); }
@@ -196,43 +205,43 @@ static u32 slab_class(u32 sz) {
 
 static u32 slab_size(u32 cls) { return 16u << cls; }
 
-static u32 blk_alloc(u32 sz, u32* cap) {
+static uptr blk_alloc(u32 sz, u32* cap) {
     if (sz == 0) sz = 16;
     u32 cls = slab_class(sz);
     *cap = slab_size(cls);
     SPIN_LOCK(&_slab_lock);
     if (_slab_heads[cls]) {
-        u32 head = (u32)(size_t)_slab_heads[cls];
-        _slab_heads[cls] = *(void**)_slab_heads[cls];
+        void* head = _slab_heads[cls];
+        _slab_heads[cls] = *(void**)head;
         SPIN_UNLOCK(&_slab_lock);
-        return head;
+        return (uptr)head;
     }
     SPIN_UNLOCK(&_slab_lock);
-    return (u32)(size_t)mem_alloc(*cap);
+    return (uptr)mem_alloc(*cap);
 }
 
 // ============================================================
 // COPY
 // ============================================================
 static inline void xcp(u8* d, const u8* s, u32 n) {
-    #ifdef __SSE2__
     u32 i = 0;
-    for (; i + 16 <= n; i += 16) {
-        __m128i v = _mm_loadu_si128((__m128i*)(s + i));
+#if AMORA_SSE2
+    for (; i + 16u <= n; i += 16u) {
+        __m128i v = _mm_loadu_si128((const __m128i*)(s + i));
         _mm_storeu_si128((__m128i*)(d + i), v);
     }
-    #endif
-    for (; i + 8 <= n; i += 8) *(u64*)(d + i) = *(u64*)(s + i);
+#endif
+    for (; i + 8u <= n; i += 8u) *(u64*)(d + i) = *(const u64*)(s + i);
     for (; i < n; i++) d[i] = s[i];
 }
 
 static inline void xzero(u8* d, u32 n) {
-    #ifdef __SSE2__
-    __m128i z = _mm_setzero_si128();
     u32 i = 0;
-    for (; i + 16 <= n; i += 16) _mm_storeu_si128((__m128i*)(d + i), z);
-    #endif
-    for (u32 i = 0; i < n; i++) d[i] = 0;
+#if AMORA_SSE2
+    __m128i z = _mm_setzero_si128();
+    for (; i + 16u <= n; i += 16u) _mm_storeu_si128((__m128i*)(d + i), z);
+#endif
+    for (; i < n; i++) d[i] = 0;
 }
 
 // ============================================================
@@ -242,9 +251,9 @@ static int shard_init(Shard* sh, u32 cap) {
     if (cap < GROUP_SIZE) cap = GROUP_SIZE;
     while (cap & (cap - 1)) cap++;
     
-    u32 co = (u32)(size_t)mem_alloc(cap + GROUP_SIZE);
-    u32 so = (u32)(size_t)mem_alloc(cap * SLOT_SZ);
-    u32 bo = (u32)(size_t)mem_alloc(BLOOM_BITS / 8);
+    uptr co = (uptr)mem_alloc(cap + GROUP_SIZE);
+    uptr so = (uptr)mem_alloc((uptr)cap * (uptr)SLOT_SZ);
+    uptr bo = (uptr)mem_alloc(BLOOM_BITS / 8);
     
     if (!co || !so || !bo) return 0;
     
@@ -266,12 +275,20 @@ static inline u8* slot_key(const Slot* s) {
     return s->koff ? MP(s->koff) : (u8*)s->ikey;
 }
 
+static inline void amora_inc_u64(volatile u64* p) {
+#ifdef _WIN32
+    InterlockedIncrement64((volatile LONG64*)p);
+#else
+    __sync_add_and_fetch(p, 1);
+#endif
+}
+
 // ============================================================
 // SHARD FIND
 // ============================================================
 static Slot* shard_find(Shard* sh, const u8* k, u32 kl, u32 fh) {
     if (!bloom_test(sh_bloom(sh), fh)) {
-        __sync_add_and_fetch(&sh->misses, 1);
+        amora_inc_u64(&sh->misses);
         return NULL;
     }
     
@@ -284,21 +301,21 @@ static Slot* shard_find(Shard* sh, const u8* k, u32 kl, u32 fh) {
         for (u32 i = 0; i < GROUP_SIZE; i++) {
             u32 si = (idx + i) & mask;
             if (ctrl[si] == CTRL_EMPTY) {
-                __sync_add_and_fetch(&sh->misses, 1);
+                amora_inc_u64(&sh->misses);
                 return NULL;
             }
             if (ctrl[si] != fp) continue;
             
             Slot* s = sh_slot(sh, si);
             if (s->hash == fh && s->klen == kl && memcmp(slot_key(s), k, kl) == 0) {
-                __sync_add_and_fetch(&sh->hits, 1);
+                amora_inc_u64(&sh->hits);
                 return s;
             }
         }
         idx = (idx + GROUP_SIZE) & mask;
     }
     
-    __sync_add_and_fetch(&sh->misses, 1);
+    amora_inc_u64(&sh->misses);
     return NULL;
 }
 
@@ -344,7 +361,10 @@ static int shard_set(Shard* sh, const u8* k, u32 kl, const u8* v, u32 vl, u32 fh
     return 0;
 
 do_insert: {
-    u32 ko = 0, kcap = 0, vo = 0, vcap = 0;
+    uptr ko = 0;
+    u32  kcap = 0;
+    uptr vo = 0;
+    u32  vcap = 0;
     
     if (AMORA_INLINE_KEY_MAX == 0 || kl > AMORA_INLINE_KEY_MAX) {
         ko = blk_alloc(kl, &kcap);
@@ -463,9 +483,10 @@ static napi_value make_null(napi_env env) {
 static void get_string(napi_env env, napi_value val, char* buf, size_t* len) {
     size_t slen;
     napi_get_value_string_utf8(env, val, NULL, 0, &slen);
-    if (slen >= *len) slen = *len - 1;
-    napi_get_value_string_utf8(env, val, buf, (slen + 1), &slen);
-    *len = slen + 1;
+    if (slen > *len) slen = *len;
+    napi_get_value_string_utf8(env, val, buf, slen + 1, &slen);
+    buf[slen] = 0;
+    *len = slen;
 }
 
 // ============================================================
@@ -491,16 +512,17 @@ static napi_value native_set(napi_env env, napi_callback_info info) {
     get_string(env, argv[0], kbuf, &klen);
     get_string(env, argv[1], vbuf, &vlen);
     
-    if (klen > MAX_KEY_SIZE || vlen > MAX_VALUE_SIZE) return make_bool(env, false);
+    if (klen == 0 || klen > MAX_KEY_SIZE) return make_bool(env, false);
+    if (vlen > MAX_VALUE_SIZE) return make_bool(env, false);
     
     u32 fh = hash32((u8*)kbuf, (u32)klen);
     u32 si = HSHARD(fh);
     
     shard_lock(&_shards[si]);
-    int ok = shard_set(&_shards[si], (u8*)kbuf, (u32)klen, (u8*)vbuf, (u32)vlen, fh);
+    int ok = shard_set(&_shards[si], (u8*)kbuf, (u32)klen, (u8*)vbuf, (u32)(vlen + 1u), fh);
     shard_unlock(&_shards[si]);
     
-    if (ok) __sync_add_and_fetch(&_ops_total, 1);
+    if (ok) amora_inc_u64(&_ops_total);
     return make_bool(env, ok == 1);
 }
 
@@ -513,7 +535,7 @@ static napi_value native_get(napi_env env, napi_callback_info info) {
     size_t klen = MAX_KEY_SIZE;
     get_string(env, argv[0], kbuf, &klen);
     
-    if (klen > MAX_KEY_SIZE) return make_string(env, "");
+    if (klen == 0 || klen > MAX_KEY_SIZE) return make_null(env);
     
     u32 fh = hash32((u8*)kbuf, (u32)klen);
     u32 si = HSHARD(fh);
@@ -535,6 +557,8 @@ static napi_value native_has(napi_env env, napi_callback_info info) {
     char kbuf[MAX_KEY_SIZE + 1];
     size_t klen = MAX_KEY_SIZE;
     get_string(env, argv[0], kbuf, &klen);
+
+    if (klen == 0 || klen > MAX_KEY_SIZE) return make_bool(env, false);
     
     u32 fh = hash32((u8*)kbuf, (u32)klen);
     u32 si = HSHARD(fh);
@@ -555,6 +579,8 @@ static napi_value native_delete(napi_env env, napi_callback_info info) {
     char kbuf[MAX_KEY_SIZE + 1];
     size_t klen = MAX_KEY_SIZE;
     get_string(env, argv[0], kbuf, &klen);
+
+    if (klen == 0 || klen > MAX_KEY_SIZE) return make_bool(env, false);
     
     u32 fh = hash32((u8*)kbuf, (u32)klen);
     u32 si = HSHARD(fh);

@@ -33,7 +33,7 @@ try {
 
   const s = db.stats();
   console.log(`► Open ✅  (${s.shards} shards · Native C addon)`);
-  console.log(`  count: ${s.count} · capacity: ${s.capacity()}\n`);
+  console.log(`  count: ${s.count} · capacity: ${s.capacity}\n`);
 } catch (e) {
   console.error('► Open ❌', e.message);
   process.exit(1);
@@ -83,20 +83,14 @@ sep();
 
 hdr('Size validation (safety)');
 try {
-  let rejected = false;
-  try { db.set('x'.repeat(5000), 'val'); }
-  catch (e) { rejected = true; ok('5000B key rejected →', '✅ ' + e.message.slice(0, 50)); }
-  if (!rejected) ok('5000B key →', '❌ should reject');
+  const tooLongKeyOk = db.set('x'.repeat(5000), 'val');
+  ok('5000B key rejected →', tooLongKeyOk === false ? '✅' : '❌ should reject');
 
-  rejected = false;
-  try { db.set('', 'val'); }
-  catch (e) { rejected = true; ok('Empty key rejected →', '✅'); }
-  if (!rejected) ok('Empty key →', '❌ should reject');
+  const emptyKeyOk = db.set('', 'val');
+  ok('Empty key rejected →', emptyKeyOk === false ? '✅' : '❌ should reject');
 
-  rejected = false;
-  try { db.set('toobig', 'Y'.repeat((1 << 20) + 1)); }
-  catch (e) { rejected = true; ok('Value >1MB rejected →', '✅ ' + e.message.slice(0, 50)); }
-  if (!rejected) ok('Value >1MB →', '❌ should reject');
+  const tooBigValOk = db.set('toobig', 'Y'.repeat((1 << 20) + 1));
+  ok('Value >1MB rejected →', tooBigValOk === false ? '✅' : '❌ should reject');
 } catch (e) {
   console.error('CRASH:', e.message);
   process.exit(1);

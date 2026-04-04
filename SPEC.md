@@ -1,85 +1,85 @@
 # AmoraDB Technical Specification
 
-AmoraDB is an ultra-high-performance, zero-dependency, sharded key-value storage engine built in C and compiled to WebAssembly for Node.js environments.
+AmoraDB is an ultra-high-performance, sharded key-value storage engine written in C and shipped as a native Node.js addon (N-API).
 
-## 1. Core Architecture
+This specification describes the current native implementation located under `npm/`.
 
-### 1.1 Sharding Strategy
-- **Shards**: 64 independent shards (`N_SHARDS = 64`).
-- **Parallelism**: Shard-level locking using atomic spinlocks for multi-threaded operations.
-- **Distribution**: Keys are hashed using `RapidHash`, and the top 6 bits determine the shard index.
+## 1. Architecture
 
-### 1.2 Hash Table (Swiss Table)
-- **Design**: Google's Swiss Table inspired design for high cache locality and SIMD probing.
-- **Group Size**: 16 slots per group (`GROUP_SIZE = 16`).
-- **Control Bytes**: Each slot has a 1-byte control value (Empty `0x80`, Deleted `0xFE`, or 7-bit hash suffix).
-- **Probing**: Linear probing with `wasm_simd128` group filtering.
+### 1.1 Components
+- **JavaScript wrapper**: Loads the compiled addon and exposes a small API surface ([npm/index.js](npm/index.js)).
+- **Native addon**: Implements the storage engine and N-API bindings ([native.c](npm/src/native.c)).
 
-### 1.3 Bloom Filters
-- **Memory**: 256 KB per shard (2M bits total per shard).
-- **Functions**: 6 hash functions per lookup.
-- **Effectiveness**: Near-zero cost for negative lookups (non-existent keys).
+### 1.2 Sharding Strategy
+- **Shard count**: 64 shards (`N_SHARDS = 64`).
+- **Shard selection**: `HSHARD(hash)` maps the key hash to a shard index using the upper bits.
+- **Locking**: Per-shard spinlock to protect updates and reads (`SPIN_LOCK` / `SPIN_UNLOCK`).
 
-### 1.4 Sorted Index (Skip List)
-- **Levels**: 16-level probabilistic Skip List.
-- **Capacity**: Supports up to 1M nodes.
-- **Operations**: Prefix scans and lexicographic range queries.
+### 1.3 Hashing
+- **Hash function**: RapidHash-inspired mixing producing a 32-bit hash (`hash32()`).
+- **Fingerprint**: `H2(hash)` stores a 7-bit fingerprint in the control byte to filter candidates during probing.
+- **Probe start**: `H1(hash)` picks the initial bucket index (masked to capacity).
 
-### 1.5 Memory Management
-- **Slab Allocator**: Custom 20-class slab allocator for key/value storage.
-- **Classes**: 16B to 1MB size classes.
-- **GC/Compaction**: Tombstone-aware garbage collection with a 25% fragmentation threshold.
-- **Inline Keys**: Keys ≤ 22 bytes are stored directly within the hash table slot to avoid extra allocations.
+### 1.4 Hash Table Layout (Swiss Table-inspired)
+- **Control bytes**:
+  - `CTRL_EMPTY = 0x80`
+  - `CTRL_DELETED = 0xFE`
+  - Occupied: stores fingerprint (`H2(hash)`).
+- **Group probing**: `GROUP_SIZE = 16`. The implementation scans groups linearly.
+- **Slots**: Each bucket has a `Slot` storing key/value pointers and lengths.
 
-## 2. Durability & Integrity
+### 1.5 Bloom Filters
+- **Per-shard bloom**: 2,097,152 bits (256 KB) per shard (`BLOOM_BITS = 2 * 1024 * 1024`).
+- **Hash functions**: 2 derived bit positions from the 32-bit hash.
+- **Behavior**: Used as a fast negative filter before probing the hash table.
 
-### 2.1 Write-Ahead Log (WAL)
-- **Format**: Append-only log with CRC32C checksums for every record.
-- **Header**: 8-byte header (`WAL_MAGIC = 0x414D5257`, `WAL_VERSION = 20`).
-- **Size Limit**: 32 MB per WAL file.
-- **Recovery**: Automatic replay on database open with error reporting for corrupted entries.
+## 2. Memory Management
 
-### 2.2 Data Integrity
-- **Checksums**: Slice-by-4 CRC32C unrolled implementation for high-speed verification.
-- **Snapshots**: Full database exports include per-record CRC32C checksums to detect data corruption.
+### 2.1 Heap
+- **Allocator**: A bump allocator backed by a growable heap (`realloc`), aligned to 16 bytes.
+- **Lifecycle**: `db_init()` resets the heap by freeing all allocations and reinitializing shards.
 
-## 3. Concurrency & Performance
+### 2.2 Slab Pooling
+- **Size classes**: `SLAB_CLASSES = 20`.
+- **Strategy**: Per-class free lists protected by a global slab spinlock.
+- **Goal**: Reduce allocation overhead for key/value storage.
 
-### 3.1 Multi-threading
-- **Workers**: Up to 8 worker threads using Node.js `worker_threads`.
-- **Memory**: Shared `SharedArrayBuffer` memory between main thread and workers.
-- **Synchronization**: `stdatomic.h` with `acquire/release/relaxed` memory ordering for lock-free counters and spinlocks.
+## 3. Concurrency
 
-### 3.2 Performance Targets
-- **Writes**: 1.5M+ ops/s (in-memory, single node).
-- **Reads**: 1.7M+ ops/s (in-memory, single node).
-- **Latency**: Sub-microsecond access times for small key/value pairs.
+### 3.1 Locking Model
+- **Per-shard spinlocks** are used to serialize access to each shard.
+- **Counters** (`hits`, `misses`, `ops`) are incremented atomically on Windows and using GCC builtins elsewhere.
 
-## 4. API Specification
+## 4. Native API (JavaScript)
 
-### 4.1 Core Methods
-- `set(key, value)`: Atomic insertion or update.
-- `get(key)`: Fast retrieval with Bloom filter bypass for negative hits.
-- `has(key)`: Bloom filter check.
-- `delete(key)`: Logical deletion with tombstone marking.
-- `batch(ops[])`: ACID-like atomic batch operations with rollback capability.
+### 4.1 Construction
+- `AmoraDB.open({ cap })`: Initializes the database with an initial capacity.
 
-### 4.2 Scanning
-- `scan(prefix)`: Prefix-based range scan.
-- `range(from, to)`: Inclusive lexicographic range scan.
+### 4.2 Operations
+- `db.set(key, value) -> boolean`
+- `db.get(key) -> string | null`
+- `db.has(key) -> boolean`
+- `db.delete(key) -> boolean`
+
+### 4.3 Introspection
+- `db.count() -> number`
+- `db.capacity() -> number`
+- `db.hits() -> number`
+- `db.misses() -> number`
+- `db.ops() -> number`
+- `db.stats() -> object`
+- `db.reset(cap?) -> boolean`
+- `db.heartbeat() -> boolean`
+- `db.bench(n?) -> object`
 
 ## 5. Limits & Constraints
 
-- **Maximum Key Size**: 4,096 bytes (4 KB).
-- **Maximum Value Size**: 1,048,576 bytes (1 MB).
-- **Inline Key Fast Path**: ≤ 22 bytes.
-- **Max Threads**: 8.
-- **Max WAL Size**: 32 MB.
-- **Max Shards**: 64.
-- **Max Memory**: Up to 4GB (WASM limit).
+- **Maximum key size**: 4,096 bytes.
+- **Maximum value size**: 1,048,576 bytes (1 MB).
+- **Inline key threshold**: 22 bytes.
+- **Shards**: 64.
 
-## 6. Binary Format (WAL/Snapshots)
+## 6. Build Notes
 
-- **WAL Record**: `[Type:1][KLen:2][VLen:4][Key:KLen][Value:VLen][CRC:4]`
-- **Snapshot Header**: `[Magic:4][Version:4][Count:4][Reserved:20]`
-- **Snapshot Record**: `[KLen:2][VLen:4][Key:KLen][Value:VLen][CRC:4]`
+- **Windows**: Requires Visual Studio Build Tools / Visual Studio with “Desktop development with C++”.
+- **macOS/Linux**: Requires a working toolchain (clang/gcc) and Python for node-gyp.
