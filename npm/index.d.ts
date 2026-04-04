@@ -28,6 +28,10 @@ declare class AmoraDB {
     hits: number;
     misses: number;
     total_ops: number;
+    set_ops: number;
+    get_ops: number;
+    has_ops: number;
+    delete_ops: number;
     shards: number;
   };
 

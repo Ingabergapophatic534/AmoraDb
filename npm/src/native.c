@@ -456,12 +456,21 @@ static int shard_delete(Shard* sh, const u8* k, u32 kl, u32 fh) {
 // GLOBAL STATE
 // ============================================================
 static volatile u64 _ops_total = 0;
+static volatile u64 _ops_set = 0;
+static volatile u64 _ops_get = 0;
+static volatile u64 _ops_has = 0;
+static volatile u64 _ops_delete = 0;
 
 // ============================================================
 // DB INIT
 // ============================================================
 static int db_init(u32 cap) {
     mem_free_all();
+    _ops_total = 0;
+    _ops_set = 0;
+    _ops_get = 0;
+    _ops_has = 0;
+    _ops_delete = 0;
     u32 c = 1024;
     if (cap > c) { c = 1; while (c < cap) c <<= 1; }
     for (int i = 0; i < SLAB_CLASSES; i++) _slab_heads[i] = NULL;
@@ -530,6 +539,9 @@ static napi_value native_set(napi_env env, napi_callback_info info) {
     size_t argc = 2;
     napi_value argv[2];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+
+    amora_inc_u64(&_ops_total);
+    amora_inc_u64(&_ops_set);
     
     char kbuf[MAX_KEY_SIZE + 1];
     char vbuf[MAX_VALUE_SIZE + 1];
@@ -547,7 +559,6 @@ static napi_value native_set(napi_env env, napi_callback_info info) {
     int ok = shard_set(&_shards[si], (u8*)kbuf, (u32)klen, (u8*)vbuf, (u32)vlen, fh);
     shard_unlock(&_shards[si]);
     
-    if (ok) amora_inc_u64(&_ops_total);
     return make_bool(env, ok == 1);
 }
 
@@ -555,6 +566,9 @@ static napi_value native_get(napi_env env, napi_callback_info info) {
     size_t argc = 1;
     napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+
+    amora_inc_u64(&_ops_total);
+    amora_inc_u64(&_ops_get);
     
     char kbuf[MAX_KEY_SIZE + 1];
     size_t klen = 0;
@@ -578,6 +592,9 @@ static napi_value native_has(napi_env env, napi_callback_info info) {
     size_t argc = 1;
     napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+
+    amora_inc_u64(&_ops_total);
+    amora_inc_u64(&_ops_has);
     
     char kbuf[MAX_KEY_SIZE + 1];
     size_t klen = 0;
@@ -600,6 +617,9 @@ static napi_value native_delete(napi_env env, napi_callback_info info) {
     size_t argc = 1;
     napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+
+    amora_inc_u64(&_ops_total);
+    amora_inc_u64(&_ops_delete);
     
     char kbuf[MAX_KEY_SIZE + 1];
     size_t klen = 0;
@@ -644,6 +664,10 @@ static napi_value native_stats(napi_env env, napi_callback_info info) {
     napi_create_uint32(env, (u32)db_hits(), &val); napi_set_named_property(env, result, "hits", val);
     napi_create_uint32(env, (u32)db_misses(), &val); napi_set_named_property(env, result, "misses", val);
     napi_create_uint32(env, (u32)_ops_total, &val); napi_set_named_property(env, result, "total_ops", val);
+    napi_create_uint32(env, (u32)_ops_set, &val); napi_set_named_property(env, result, "set_ops", val);
+    napi_create_uint32(env, (u32)_ops_get, &val); napi_set_named_property(env, result, "get_ops", val);
+    napi_create_uint32(env, (u32)_ops_has, &val); napi_set_named_property(env, result, "has_ops", val);
+    napi_create_uint32(env, (u32)_ops_delete, &val); napi_set_named_property(env, result, "delete_ops", val);
     napi_create_uint32(env, N_SHARDS, &val); napi_set_named_property(env, result, "shards", val);
     
     return result;
