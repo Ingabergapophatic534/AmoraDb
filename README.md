@@ -120,10 +120,17 @@ const AmoraDB = require('amoradbx');
 const db = AmoraDB.open({ cap: 65536 });
 
 db.set('user:1', 'alice');
-db.get('user:1');         // → 'alice'
-db.has('user:1');         // → true
+const getResult = db.get('user:1');         // → 'alice'
+const hasResult = db.has('user:1');         // → true
+
 db.delete('user:1');
-db.get('user:1');         // → null
+const deleteGetResult = db.get('user:1');         // → null
+const deleteHasResult = db.has('user:1');         // → false
+
+console.log(getResult);
+console.log(hasResult);
+console.log(deleteGetResult);
+console.log(deleteHasResult);
 
 console.log(db.stats());
 // {
