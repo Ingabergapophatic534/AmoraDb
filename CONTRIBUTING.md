@@ -63,33 +63,10 @@ echo "{'variables':{'android_ndk_path':''}}" > ~/.gyp/include.gypi
 npm install
 ```
 
-#### 4) Validate (tests + benchmark)
-
-```bash
-node test.js
-node benchmark.js
-```
-
 ### Troubleshooting (Android/Termux)
 
 *   **Build succeeds but crashes at runtime**: Make sure you rebuilt after pulling changes: delete `npm/build/` and rerun `npm install`.
 *   **Slow compilation**: Termux compilation is slower than desktop. Prefer smaller test sizes while iterating and use `node test.js` first.
-
-### Building from Source
-
-To build the native addon:
-
-```bash
-npm install
-```
-
-If you see `gyp: Undefined variable android_ndk_path` on Termux, create this file and retry:
-
-```bash
-mkdir -p ~/.gyp
-echo "{'variables':{'android_ndk_path':''}}" > ~/.gyp/include.gypi
-npm install
-```
 
 ### Running Tests
 
