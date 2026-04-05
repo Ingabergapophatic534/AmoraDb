@@ -104,37 +104,13 @@ node benchmark.js
 
 ## 🚀 Getting Started
 
-### Prerequisites
-
-- Node.js ≥ 18
-- Python 3.x (required by node-gyp on many systems)
-- A working C/C++ toolchain (MSVC on Windows, clang/gcc on macOS/Linux)
-  - Windows: Visual Studio 2022 (or Build Tools) with “Desktop development with C++”
-  - Android (Termux, arm64): clang, make, python, and a working Node.js toolchain
-
 ### Installation
 
 ```bash
 npm install amoradbx
 ```
 
-On supported platforms, the native binary is provided as a prebuilt `.node` file and no build toolchain is required. If no prebuild is available for your platform, the install falls back to building from source (requires python + compiler).
-
-Termux (Android, arm64):
-
-```bash
-pkg update -y
-pkg install -y nodejs python make clang
-npm install amoradbx
-```
-
-If you see `gyp: Undefined variable android_ndk_path`, create this file and retry:
-
-```bash
-mkdir -p ~/.gyp
-echo "{'variables':{'android_ndk_path':''}}" > ~/.gyp/include.gypi
-npm install amoradbx
-```
+If installation fails due to missing build tools on your platform, see [CONTRIBUTING.md](CONTRIBUTING.md) for platform-specific setup instructions.
 
 ### Basic Usage
 
@@ -147,7 +123,7 @@ db.set('user:1', 'alice');
 db.get('user:1');         // → 'alice'
 db.has('user:1');         // → true
 db.delete('user:1');
-```
+db.get('user:1');         // → null
 
 console.log(db.stats());
 // {
@@ -162,55 +138,7 @@ console.log(db.stats());
 //   delete_ops: 1,
 //   shards: 64
 // }
-
-
----
-
-## 🛠 Building from Source
-
-### Prerequisites
-
-- Node.js ≥ 18
-- Python 3.x (for node-gyp)
-- C++ compiler (gcc/clang/MSVC)
-  - Windows: Visual Studio 2022 (or Build Tools) with “Desktop development with C++”
-  - Android (Termux, arm64): `pkg install -y nodejs python make clang`
-
-### Build
-
-```bash
-cd npm
-npm install
-npm run build
 ```
-
-This will compile the native addon for your current platform.
-
----
-
-## 📁 Project Structure
-
-```
-amora/
-├── npm/                    # Native Node.js addon package
-│   ├── package.json         # Package config with prebuilds
-│   ├── binding.gyp         # node-gyp build config
-│   ├── index.js            # JS wrapper (same API as WASM version)
-│   └── src/
-│       └── native.c       # Pure C NAPI addon
-├── test.js                # Test suite
-└── benchmark.js          # Performance benchmarks
-```
-
----
-
-## 🧪 Running Tests
-
-```bash
-node test.js
-```
-
-The test suite covers: heartbeat, set/get/has/delete, updates, large values (512 KB), key/value size validation, and a stress run (50K keys).
 
 ---
 
