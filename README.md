@@ -110,12 +110,27 @@ node benchmark.js
 npm install amoradbx
 ```
 
-If installation fails due to missing build tools on your platform, see [CONTRIBUTING.md](CONTRIBUTING.md) for platform-specific setup instructions.
+Runtime loading strategy:
+
+1. Prebuilt native binary (if present).
+2. Local native build (`node-gyp`) output.
+3. Portable fallback engine (no local compiler required).
+
+To force fallback mode:
+
+```bash
+AMORADB_FORCE_WASM=1 node your-app.js
+# Windows PowerShell:
+$env:AMORADB_FORCE_WASM="1"; node your-app.js
+```
+
+If you are contributing to the native core and need full toolchain setup, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Basic Usage
 
 ```js
 const AmoraDB = require('amoradbx');
+console.log('runtime mode:', AmoraDB.runtime()); // native | wasm | portable
 
 const db = AmoraDB.open({ cap: 65536 });
 

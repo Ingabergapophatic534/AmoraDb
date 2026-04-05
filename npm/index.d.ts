@@ -7,6 +7,7 @@ declare class AmoraDB {
     walPath?: string | null;
     walSync?: boolean;
   }): AmoraDB;
+  static runtime(): 'native' | 'wasm' | 'portable';
 
   set(key: string, value: string): boolean;
   get(key: string): string | null;

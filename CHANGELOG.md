@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.10] - 2026-04-05
+
+### Added
+- Three-layer runtime loading strategy: prebuilt native, local native build, and portable fallback engine.
+- Install script (`npm/install.js`) that attempts native build but does not fail package installation when toolchain is unavailable.
+- Portable fallback binding (`npm/portable_binding.js`) compatible with the existing public API.
+
+### Changed
+- Loader now supports `AMORADB_FORCE_WASM=1` to bypass native loading and force fallback path.
+
 ## [2.0.9] - 2026-04-04
 
 ### Added

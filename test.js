@@ -3,6 +3,8 @@
 const path = require('path');
 const AmoraDB = require('./npm/index.js');
 
+console.log(AmoraDB.runtime()); // 'native' | 'wasm' | 'portable'
+
 const ok  = (label, val) => console.log(`  ${label}`.padEnd(36), val);
 const sep = ()           => console.log();
 const hdr = (t)          => console.log(`\n► ${t}`);

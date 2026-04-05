@@ -1,27 +1,59 @@
 'use strict';
 
-const path = require('path');
-
-// Try to load native addon
-let native = null;
-try {
-  native = require('./build/Release/amoradb.node');
-} catch (e) {
-  // Try alternative paths
-  const altPaths = [
-    './build/Debug/amoradb.node',
-  ];
-  for (const p of altPaths) {
-    try {
-      native = require(p);
-      break;
-    } catch (_) {}
+function tryRequire(mod) {
+  try {
+    return require(mod);
+  } catch (_) {
+    return null;
   }
 }
 
-if (!native) {
-  throw new Error('AmoraDB: Native addon not found. Reinstall and ensure build toolchain is available.');
+function loadNativeLayer() {
+  const prebuilt = './prebuilds/' + process.platform + '-' + process.arch + '/amoradb.node';
+  const candidates = [
+    prebuilt,
+    './build/Release/amoradb.node',
+    './build/Debug/amoradb.node',
+  ];
+  for (const m of candidates) {
+    const loaded = tryRequire(m);
+    if (loaded) return loaded;
+  }
+  return null;
 }
+
+function loadWasmLayer() {
+  const candidates = [
+    process.env.AMORADB_WASM_MODULE,
+    'amoradbx-wasm',
+    '@amoracoin/amoradbx-wasm',
+  ].filter(Boolean);
+  for (const m of candidates) {
+    const loaded = tryRequire(m);
+    if (loaded && typeof loaded.init === 'function') return loaded;
+  }
+  return null;
+}
+
+function resolveEngine() {
+  if (process.env.AMORADB_FORCE_WASM === '1') {
+    const wasm = loadWasmLayer();
+    if (wasm) return { binding: wasm, mode: 'wasm' };
+    return { binding: require('./portable_binding'), mode: 'portable' };
+  }
+
+  const native = loadNativeLayer();
+  if (native) return { binding: native, mode: 'native' };
+
+  const wasm = loadWasmLayer();
+  if (wasm) return { binding: wasm, mode: 'wasm' };
+
+  return { binding: require('./portable_binding'), mode: 'portable' };
+}
+
+const engine = resolveEngine();
+const native = engine.binding;
+const runtimeMode = engine.mode;
 
 const DEC = new TextDecoder();
 
@@ -37,6 +69,10 @@ class AmoraDB {
       throw new Error('AmoraDB: init failed');
     }
     return db;
+  }
+
+  static runtime() {
+    return runtimeMode;
   }
 
   set(key, value) {
